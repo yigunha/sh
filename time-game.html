@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
-<!-- 이전 head 부분은 동일 -->
 <head>
     <meta charset="UTF-8">
     <title>시간 맞추기 게임</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* 이전 스타일은 모두 동일 */
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -18,6 +17,12 @@
         }
         .clock-container {
             margin-bottom: 20px;
+            width: 100%;
+            max-width: 300px;
+        }
+        .clock-container svg {
+            width: 100%;
+            height: auto;
         }
         .digital-time {
             font-size: 24px;
@@ -26,11 +31,14 @@
         }
         .input-container {
             margin: 20px 0;
+            width: 100%;
+            max-width: 300px;
         }
         input[type="text"] {
             padding: 10px;
             font-size: 16px;
-            width: 300px;
+            width: 100%;
+            box-sizing: border-box;
         }
         button {
             padding: 10px 20px;
@@ -61,9 +69,9 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             z-index: 1000;
-            max-width: 400px;
-            width: 90%;
-            cursor: pointer; /* 커서를 포인터로 변경하여 클릭 가능함을 표시 */
+            max-width: 90%;
+            width: 400px;
+            cursor: pointer;
         }
         .modal-content {
             font-size: 16px;
@@ -94,7 +102,6 @@
 <body>
     <button onclick="showInstructions()" class="instruction-button">설명</button>
     
-    <!-- 모달에 onclick 이벤트 추가 -->
     <div id="instructionModal" class="modal" onclick="closeInstructions()">
         <button class="close-button" onclick="closeInstructions()">×</button>
         <div class="modal-content">
@@ -105,7 +112,6 @@
         </div>
     </div>
 
-    <!-- 나머지 HTML 부분은 동일 -->
     <div class="clock-container">
         <svg width="200" height="200" viewBox="0 0 200 200">
             <circle cx="100" cy="100" r="90" fill="none" stroke="black" stroke-width="2"/>
@@ -127,30 +133,32 @@
     <div class="footer">By 울란바토르 2 세종학당</div>
 
     <script>
-        // 모달 표시 함수
         function showInstructions() {
             document.getElementById('instructionModal').style.display = 'block';
         }
 
-        // 모달 닫기 함수
         function closeInstructions() {
             document.getElementById('instructionModal').style.display = 'none';
         }
 
-        // ESC 키로 모달 닫기
         window.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeInstructions();
             }
         });
 
-        // 이전 스크립트 코드는 모두 동일
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('instructionModal');
+            if (event.target === modal) {
+                closeInstructions();
+            }
+        });
+
         let currentHour;
         let currentMinute;
         let koreanTime = '';
         let koreanTimeAlt = '';
 
-        // 시계 마커 생성
         const hourMarkers = document.getElementById('hourMarkers');
         for (let i = 0; i < 12; i++) {
             const angle = (i * 30) * Math.PI / 180;
