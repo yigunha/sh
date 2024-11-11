@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>시간 맞추기 게임</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+            margin: 0;
+            position: relative;
+        }
+        .clock-container {
+            margin-bottom: 20px;
+            width: 30%;
+            max-width: auto;
+        }
+        .clock-container svg {
+            width: 100%;
+            height: auto;
+        }
+        .digital-time {
+            font-size: 24px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .input-container {
+            margin: 20px 0;
+            width: 100%;
+            max-width: 300px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 40px;
+            padding: 20px;
+            font-size: 16px;
+            color: #666;
+            font-style: italic;
+            text-align: center;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-width: 90%;
+            width: 400px;
+            cursor: pointer;
+        }
+        .modal-content {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .instruction-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="showInstructions()" class="instruction-button">설명</button>
+    
+    <div id="instructionModal" class="modal" onclick="closeInstructions()">
+        <button class="close-button" onclick="closeInstructions()">×</button>
+        <div class="modal-content">
+            1. 띄어쓰기를 해야 합니다.<br>
+            2. 확인을 누르시면 답을 확인할 수 있습니다.<br>
+            3. 다시 버튼을 누르면 새로운 시간이 나옵니다.<br>
+            4. 정답 버튼을 누르면 정답을 볼 수 있습니다.
+        </div>
+    </div>
+
+    <div class="clock-container">
+        <svg width="200" height="200" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="90" fill="none" stroke="black" stroke-width="2"/>
+            <g id="hourMarkers"></g>
+            <line id="hourHand" x1="100" y1="100" x2="100" y2="50" stroke="black" stroke-width="4" stroke-linecap="round"/>
+            <line id="minuteHand" x1="100" y1="100" x2="100" y2="30" stroke="black" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+    </div>
+    <div class="digital-time" id="digitalTime"></div>
+    <div class="input-container">
+        <input type="text" id="input1" placeholder="시간을 한글로 입력하세요 (예: 오후 세 시 사십오 분)">
+    </div>
+    <div>
+        <button onclick="checkAnswer()">확인</button>
+        <button onclick="generateNewTime()">다시</button>
+        <button onclick="showAnswer()">정답</button>
+    </div>
+    <div class="result" id="result"></div>
+    <div class="footer">By 울란바토르 2 세종학당</div>
+
+    <script>
+        function showInstructions() {
+            document.getElementById('instructionModal').style.display = 'block';
+        }
+
+        function closeInstructions() {
+            document.getElementById('instructionModal').style.display = 'none';
+        }
+
+        window.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeInstructions();
+            }
+        });
+
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('instructionModal');
+            if (event.target === modal) {
+                closeInstructions();
+            }
+        });
+
+        let currentHour;
+        let currentMinute;
+        let koreanTime = '';
+        let koreanTimeAlt = '';
+
+        const hourMarkers = document.getElementById('hourMarkers');
+        for (let i = 0; i < 12; i++) {
+            const angle = (i * 30) * Math.PI / 180;
+            const x1 = 100 + 80 * Math.sin(angle);
+            const y1 = 100 - 80 * Math.cos(angle);
+            const x2 = 100 + 90 * Math.sin(angle);
+            const y2 = 100 - 90 * Math.cos(angle);
+            hourMarkers.innerHTML += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="black" stroke-width="2"/>`;
+        }
+
+        function numberToKoreanHour(num) {
+            const numbers = ['열두', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열한', '열두'];
+            return numbers[num % 12];
+        }
+
+        function numberToKoreanMinute(num) {
+            if (num === 0) return '';
+            
+            const units = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+            const tens = ['', '십', '이십', '삼십', '사십', '오십'];
+            
+            if (num < 10) return units[num];
+            
+            const ten = Math.floor(num / 10);
+            const one = num % 10;
+            
+            if (one === 0) return tens[ten];
+            return tens[ten] + units[one];
+        }
+
+        function timeToKorean(hour, minute) {
+            let period1 = hour < 12 ? '오전 ' : '오후 ';
+            
+            let period2;
+            if (hour >= 0 && hour < 6) period2 = '새벽 ';
+            else if (hour >= 6 && hour < 12) period2 = '아침 ';
+            else if (hour >= 12 && hour < 18) period2 = '낮 ';
+            else if (hour >= 18 && hour < 22) period2 = '저녁 ';
+            else period2 = '밤 ';
+
+            const hourKorean = numberToKoreanHour(hour) + ' 시';
+            
+            const minuteKorean = minute === 0 ? '' : ' ' + numberToKoreanMinute(minute) + ' 분';
+
+            return [
+                period1 + hourKorean + minuteKorean,
+                period2 + hourKorean + minuteKorean
+            ];
+        }
+
+        function countSpaceDifference(str1, str2) {
+            const spaces1 = (str1.match(/ /g) || []).length;
+            const spaces2 = (str2.match(/ /g) || []).length;
+            return Math.abs(spaces1 - spaces2);
+        }
+
+        function updateClockHands(hour, minute) {
+            const hourHand = document.getElementById('hourHand');
+            const minuteHand = document.getElementById('minuteHand');
+
+            const hourAngle = ((hour % 12) * 30 + minute * 0.5) * Math.PI / 180;
+            const minuteAngle = minute * 6 * Math.PI / 180;
+
+            hourHand.setAttribute('x2', 100 + 50 * Math.sin(hourAngle));
+            hourHand.setAttribute('y2', 100 - 50 * Math.cos(hourAngle));
+            minuteHand.setAttribute('x2', 100 + 70 * Math.sin(minuteAngle));
+            minuteHand.setAttribute('y2', 100 - 70 * Math.cos(minuteAngle));
+        }
+
+        function generateNewTime() {
+            currentHour = Math.floor(Math.random() * 24);
+            currentMinute = Math.floor(Math.random() * 60);
+            
+            updateClockHands(currentHour, currentMinute);
+            
+            const digitalTime = document.getElementById('digitalTime');
+            digitalTime.textContent = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
+            
+            document.getElementById('input1').value = '';
+            document.getElementById('result').textContent = '';
+            
+            [koreanTime, koreanTimeAlt] = timeToKorean(currentHour, currentMinute);
+        }
+
+        function checkAnswer() {
+            const userInput = document.getElementById('input1').value.trim();
+            const result = document.getElementById('result');
+            
+            if (userInput === koreanTime || userInput === koreanTimeAlt) {
+                result.textContent = '정답!';
+                result.style.color = 'green';
+                return;
+            }
+
+            const userInputNoSpace = userInput.replace(/\s+/g, '');
+            const koreanTimeNoSpace = koreanTime.replace(/\s+/g, '');
+            const koreanTimeAltNoSpace = koreanTimeAlt.replace(/\s+/g, '');
+
+            if (userInputNoSpace === koreanTimeNoSpace || userInputNoSpace === koreanTimeAltNoSpace) {
+                let spaceDiff = Math.min(
+                    countSpaceDifference(userInput, koreanTime),
+                    countSpaceDifference(userInput, koreanTimeAlt)
+                );
+                result.textContent = `틀렸습니다. (띄어쓰기 ${spaceDiff}개가 다릅니다)`;
+                result.style.color = 'red';
+            } else {
+                result.textContent = '틀렸습니다.';
+                result.style.color = 'red';
+            }
+        }
+
+        function showAnswer() {
+            const result = document.getElementById('result');
+            result.textContent = `정답은 "${koreanTime}" 또는 "${koreanTimeAlt}" 입니다.`;
+            result.style.color = 'blue';
+        }
+
+        generateNewTime();
+    </script>
+</body>
+</html>
