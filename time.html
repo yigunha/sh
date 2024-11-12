@@ -14,14 +14,16 @@
         <div class="modal-content">
             1. 띄어쓰기를 해야 합니다.<br>
 	    2. 오전: 0~11:59분, 오후: 12:00~23:59<br>
-   	    3. 새벽: 00시 ~ 05:59 <br>
-      	       아침: 06시 ~ 11:59 <br>
-                  낮: 12시 ~ 17:59 <br>
-               저녁: 18시 ~ 21시  <br>
-                  밤: 21시 ~ 23:59 <br>
-            4. 확인을 누르시면 답을 확인할 수 있습니다.<br>
-            5. 다시 버튼을 누르면 새로운 시간이 나옵니다.<br>
-            6. 정답 버튼을 누르면 정답을 볼 수 있습니다.
+	    3. 새벽: 00시 ~ 05:59 <br>
+ 	   <div style="padding-left: 20px;">
+        	아침: 06시 ~ 11:59 <br>
+        	낮: 12시 ~ 17:59 <br>
+        	저녁: 18시 ~ 21시 <br>
+        	밤: 21시 ~ 23:59 <br>
+	    </div>
+	    4. 확인을 누르시면 답을 확인할 수 있습니다.<br>
+	    5. 다시 버튼을 누르면 새로운 시간이 나옵니다.<br>
+	    6. 정답 버튼을 누르면 정답을 볼 수 있습니다.
         </div>
     </div>
 
@@ -39,7 +41,7 @@
     </div>
     <div>
         <button onclick="checkAnswer()">확인</button>
-        <button onclick="generateNewTime()">다시</button>
+        <button onclick="generateNewTime()">다음</button>
         <button onclick="showAnswer()">정답</button>
     </div>
     <div class="result" id="result"></div>
