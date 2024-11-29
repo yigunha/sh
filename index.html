@@ -3,26 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Import Example</title>
+  <title>GitHub Pages Import Example</title>
 </head>
 <body>
-  <h1>JavaScript Import Example</h1>
+  <h1>Import Example with GitHub Pages</h1>
   <script type="module">
-    // Import the data from the data.js file
     import { months, getMonth, year } from './data.js';
 
-    // Display the imported data in the console
-    console.log('Months:', months); // Output: Months: [ 'Jan', 'Feb', 'Mar', 'Apr', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ]
-    console.log('First month:', getMonth(0)); // Output: First month: Jan
-    console.log('Year:', year); // Output: Year: 2024
+    console.log('Months:', months);
+    console.log('First Month:', getMonth(0));
+    console.log('Year:', year);
 
-    // Example: Display data on the web page
-    const output = `
+    document.body.innerHTML += `
       <p>Months: ${months.join(', ')}</p>
       <p>First Month: ${getMonth(0)}</p>
       <p>Year: ${year}</p>
     `;
-    document.body.insertAdjacentHTML('beforeend', output);
   </script>
 </body>
 </html>
