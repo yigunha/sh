@@ -1,12 +1,28 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My GitHub Page</title>
+  <title>Import Example</title>
 </head>
 <body>
-  <h1>안녕하세요, GitHub Pages입니다!</h1>
-  <p>이것은 GitHub Pages에서 호스팅되는 웹사이트입니다.</p>
+  <h1>JavaScript Import Example</h1>
+  <script type="module">
+    // Import the data from the data.js file
+    import { months, getMonth, year } from './data.js';
+
+    // Display the imported data in the console
+    console.log('Months:', months); // Output: Months: [ 'Jan', 'Feb', 'Mar', 'Apr', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ]
+    console.log('First month:', getMonth(0)); // Output: First month: Jan
+    console.log('Year:', year); // Output: Year: 2024
+
+    // Example: Display data on the web page
+    const output = `
+      <p>Months: ${months.join(', ')}</p>
+      <p>First Month: ${getMonth(0)}</p>
+      <p>Year: ${year}</p>
+    `;
+    document.body.insertAdjacentHTML('beforeend', output);
+  </script>
 </body>
 </html>
