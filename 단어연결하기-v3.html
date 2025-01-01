@@ -71,6 +71,7 @@
         let cellCount = 0;
         let lastTouchTime = 0;
         const DOUBLE_TAP_TIME_LIMIT = 300; // 더블탭을 위한 시간 제한 (300ms)
+        let longPressTimeout; // 길게 누른 시간 처리
 
         // 저장된 셀 데이터 및 연결선 복원
         function loadFromLocalStorage() {
@@ -255,6 +256,23 @@
                 }
             }
         }
+
+        // 길게 누름으로 셀 추가
+        document.getElementById('canvas').addEventListener('touchstart', function(e) {
+            e.preventDefault(); // 기본 터치 동작 방지
+            longPressTimeout = setTimeout(() => {
+                if (e.target === document.getElementById('canvas')) {
+                    const rect = e.target.getBoundingClientRect();
+                    const x = e.changedTouches[0].clientX - rect.left;
+                    const y = e.changedTouches[0].clientY - rect.top;
+                    createCell(x, y);
+                }
+            }, 800); // 800ms 동안 길게 누르면 셀 추가
+        });
+
+        document.getElementById('canvas').addEventListener('touchend', function() {
+            clearTimeout(longPressTimeout); // 길게 누른 시간 취소
+        });
 
         // double click으로 셀 추가
         document.getElementById('canvas').addEventListener('dblclick', function(e) {
