@@ -135,7 +135,6 @@
         let linkMode = false;
         let linkStart = null;
         let lastClickTime = 0;
-	let lastTouchTime = 0;
         
         const colors = {
             red: { bg: '#ff0000', text: '#ffffff' },
@@ -217,50 +216,56 @@
             e.preventDefault();
         }
 
-function handleClick(e) {
+        function handleClick(e) {
+            const currentTime = new Date().getTime();
+            const timeDiff = currentTime - lastClickTime;
+            
+            if (isDragging) {
+                isDragging = false;
+                return;
+            }
+
+            if (linkMode) {
+                if (e.target !== linkStart) {
+                    links.push({ start: linkStart, end: e.target });
+                    updateConnections();
+                    linkMode = false;
+                    linkStart.classList.remove('linking');
+                    linkStart = null;
+                    showStatus('Cells linked!');
+                }
+                return;
+            }
+
+            if (timeDiff < 300) {
+                // Double click
+                showMenu(e);
+            } else {
+                // Single click
+
+            }
+            
+            lastClickTime = currentTime;
+        }
+
+
+let lastTouchTime = 0;
+
+function handleTouch(e) {
     const currentTime = new Date().getTime();
-    let timeDiff = 0;
-    let touchtimeDiff = 0;
+    const touchtimeDiff = currentTime - lastTouchTime;
+
+    // 더블클릭 감지
+    if (touchtimeDiff < 300 && touchtimeDiff > 0) {
+        showMenu(e);
+    }
     
-    if (e.type === 'click') {
-        timeDiff = currentTime - lastClickTime;
-    } else if (e.type === 'touchstart') {
-        touchtimeDiff = currentTime - lastTouchTime;
-    }
-
-    if (isDragging) {
-        isDragging = false;
-        return;
-    }
-
-    if (linkMode) {
-        if (e.target !== linkStart) {
-            links.push({ start: linkStart, end: e.target });
-            updateConnections();
-            linkMode = false;
-            linkStart.classList.remove('linking');
-            linkStart = null;
-            showStatus('Cells linked!');
-        }
-        return;
-    }
-
-    if (e.type === 'touchstart') {
-        // 모바일에서의 더블클릭을 처리
-        if (touchtimeDiff < 300 && touchtimeDiff > 0) {
-            showMenu(e);
-        }
-    } else if (e.type === 'click') {
-        // 데스크탑에서의 더블클릭 처리
-        if (timeDiff < 300) {
-            showMenu(e);
-        }
-    }
-
-    // 시간 갱신
-    lastClickTime = currentTime;
     lastTouchTime = currentTime;
 }
+
+document.addEventListener('touchstart', handleTouch);
+
+
 
         function showMenu(e) {
             removeMenus();
