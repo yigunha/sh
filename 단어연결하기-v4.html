@@ -217,44 +217,50 @@
             e.preventDefault();
         }
 
-        function handleClick(e) {
-            const currentTime = new Date().getTime();
-            const timeDiff = currentTime - lastClickTime;
-	    const touchtimeDiff = currentTime - lastTouchTime;
-            
-            if (isDragging) {
-                isDragging = false;
-                return;
-            }
+function handleClick(e) {
+    const currentTime = new Date().getTime();
+    let timeDiff = 0;
+    let touchtimeDiff = 0;
+    
+    if (e.type === 'click') {
+        timeDiff = currentTime - lastClickTime;
+    } else if (e.type === 'touchstart') {
+        touchtimeDiff = currentTime - lastTouchTime;
+    }
 
-            if (linkMode) {
-                if (e.target !== linkStart) {
-                    links.push({ start: linkStart, end: e.target });
-                    updateConnections();
-                    linkMode = false;
-                    linkStart.classList.remove('linking');
-                    linkStart = null;
-                    showStatus('Cells linked!');
-                }
-                return;
-            }
+    if (isDragging) {
+        isDragging = false;
+        return;
+    }
 
-   	    if (e.type === 'touchstart') {
-            // 모바일에서의 더블클릭을 처리
-
-        	if (touchtimeDiff < 300 && touchtimeDiff > 0) {
-            	   showMenu(e);
-        	}
-    	    } else {
-        	// 데스크탑에서의 더블클릭 처리
-        	if (timeDiff < 300) {
-            	   showMenu(e);
-        	}
-    	   }
-            
-            lastClickTime = currentTime;
-            lastTouchTime = currentTime;
+    if (linkMode) {
+        if (e.target !== linkStart) {
+            links.push({ start: linkStart, end: e.target });
+            updateConnections();
+            linkMode = false;
+            linkStart.classList.remove('linking');
+            linkStart = null;
+            showStatus('Cells linked!');
         }
+        return;
+    }
+
+    if (e.type === 'touchstart') {
+        // 모바일에서의 더블클릭을 처리
+        if (touchtimeDiff < 300 && touchtimeDiff > 0) {
+            showMenu(e);
+        }
+    } else if (e.type === 'click') {
+        // 데스크탑에서의 더블클릭 처리
+        if (timeDiff < 300) {
+            showMenu(e);
+        }
+    }
+
+    // 시간 갱신
+    lastClickTime = currentTime;
+    lastTouchTime = currentTime;
+}
 
         function showMenu(e) {
             removeMenus();
