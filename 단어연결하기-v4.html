@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cell Manager</title>
+    <style>
+        body {
+            margin: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            position: absolute;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            text-align: center;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .cell.linking {
+            border: 2px dashed red;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0px rgba(255, 0, 0, 0.4); }
+            100% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+        }
+        .menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #333;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            min-width: 120px;
+        }
+        .menu button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 4px;
+        }
+        .menu button:hover {
+            background: #f0f0f0;
+        }
+        .color-menu {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            padding: 15px;
+            background: white;
+            min-width: 80px;
+        }
+        .color-option {
+            width: 60px;
+            height: 60px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 2px solid #333;
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        .controls button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        svg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        #status {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+        .cell-input {
+            position: fixed;
+            padding: 5px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="status"></div>
+    <svg id="connections"></svg>
+    <div class="controls">
+        <button onclick="createCell()">Create</button>
+        <button onclick="saveState()">Save</button>
+    </div>
+
+    <script>
+        let cells = [];
+        let links = [];
+        let isDragging = false;
+        let currentCell = null;
+        let offset = { x: 0, y: 0 };
+        let linkMode = false;
+        let linkStart = null;
+        let lastClickTime = 0;
+        
+        const colors = {
+            red: { bg: '#ff0000', text: '#ffffff' },
+            yellow: { bg: '#ffff00', text: '#000000' },
+            blue: { bg: '#0000ff', text: '#ffffff' },
+            green: { bg: '#00ff00', text: '#000000' },
+            black: { bg: '#000000', text: '#ffffff' }
+        };
+
+        function showStatus(message, duration = 2000) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, duration);
+        }
+
+        function createCell(x, y, text = 'Cell', color = { bg: '#ffffff', text: '#000000' }) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.textContent = text;
+            
+            if (x === undefined || y === undefined) {
+                let pos = findEmptyPosition();
+                x = pos.x;
+                y = pos.y;
+            }
+            
+            cell.style.left = x + 'px';
+            cell.style.top = y + 'px';
+            cell.style.backgroundColor = color.bg;
+            cell.style.color = color.text;
+            
+            cell.addEventListener('mousedown', startDrag);
+            cell.addEventListener('touchstart', startDrag, { passive: false });
+            cell.addEventListener('click', handleClick);
+            
+            document.body.appendChild(cell);
+            cells.push(cell);
+            return cell;
+        }
+
+        function findEmptyPosition() {
+            let x = 50;
+            let y = 50;
+            let occupied = true;
+            
+            while (occupied) {
+                occupied = false;
+                for (let cell of cells) {
+                    let cellRect = cell.getBoundingClientRect();
+                    if (Math.abs(cellRect.left - x) < 120 && Math.abs(cellRect.top - y) < 120) {
+                        occupied = true;
+                        x += 120;
+                        if (x > window.innerWidth - 150) {
+                            x = 50;
+                            y += 120;
+                        }
+                        break;
+                    }
+                }
+            }
+            return { x, y };
+        }
+
+        function startDrag(e) {
+            if (linkMode) return;
+            
+            isDragging = true;
+            currentCell = e.target;
+            
+            const touch = e.type === 'touchstart' ? e.touches[0] : e;
+            const rect = currentCell.getBoundingClientRect();
+            
+            offset.x = touch.clientX - rect.left;
+            offset.y = touch.clientY - rect.top;
+            
+            e.preventDefault();
+        }
+
+        function handleClick(e) {
+            const currentTime = new Date().getTime();
+            const timeDiff = currentTime - lastClickTime;
+            
+            if (isDragging) {
+                isDragging = false;
+                return;
+            }
+
+            if (linkMode) {
+                if (e.target !== linkStart) {
+                    links.push({ start: linkStart, end: e.target });
+                    updateConnections();
+                    linkMode = false;
+                    linkStart.classList.remove('linking');
+                    linkStart = null;
+                    showStatus('Cells linked!');
+                }
+                return;
+            }
+
+            if (timeDiff < 300) {
+                // Double click
+                showMenu(e);
+            } else {
+                // Single click
+
+            }
+            
+            lastClickTime = currentTime;
+        }
+
+        function showMenu(e) {
+            removeMenus();
+            
+            const menu = document.createElement('div');
+            menu.className = 'menu';
+            
+            const buttons = [
+                { text: 'Link', onclick: () => startLink(e.target) },
+                { text: 'Break', onclick: () => breakLinks(e.target) },
+                { text: 'Edit', onclick: () => editCell(e.target) },
+                { text: 'Delete', onclick: () => deleteCell(e.target) },
+                { text: 'Settings', onclick: () => showColorMenu(e) },
+                { text: 'Cancel', onclick: removeMenus }
+            ];
+            
+            buttons.forEach(btn => {
+                const button = document.createElement('button');
+                button.textContent = btn.text;
+                button.onclick = btn.onclick;
+                menu.appendChild(button);
+            });
+            
+            const rect = e.target.getBoundingClientRect();
+            menu.style.left = rect.right + 10 + 'px';
+            menu.style.top = rect.top + 'px';
+            
+            document.body.appendChild(menu);
+        }
+
+        function showColorMenu(e) {
+            e.stopPropagation();
+            removeMenus();
+            
+            const menu = document.createElement('div');
+            menu.className = 'menu color-menu';
+            
+            Object.entries(colors).forEach(([name, color]) => {
+                const option = document.createElement('div');
+                option.className = 'color-option';
+                option.style.backgroundColor = color.bg;
+                option.onclick = () => {
+                    e.target.style.backgroundColor = color.bg;
+                    e.target.style.color = color.text;
+                    removeMenus();
+                };
+                menu.appendChild(option);
+            });
+            
+            const rect = e.target.getBoundingClientRect();
+            menu.style.left = rect.right + 10 + 'px';
+            menu.style.top = rect.top + 'px';
+            
+            document.body.appendChild(menu);
+        }
+
+        function startLink(cell) {
+            linkMode = true;
+            linkStart = cell;
+            cell.classList.add('linking');
+            removeMenus();
+            showStatus('Select another cell to link');
+        }
+
+        function breakLinks(cell) {
+            links = links.filter(link => 
+                link.start !== cell && link.end !== cell
+            );
+            updateConnections();
+            removeMenus();
+            showStatus('Links removed');
+        }
+
+        function editCell(cell) {
+            removeMenus();
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = cell.textContent;
+            input.className = 'cell-input';
+            
+            const rect = cell.getBoundingClientRect();
+            input.style.left = rect.left + 'px';
+            input.style.top = rect.bottom + 5 + 'px';
+            input.style.width = rect.width + 'px';
+            
+            const saveEdit = () => {
+                if (input.value.trim() !== '') {
+                    cell.textContent = input.value;
+                }
+                input.remove();
+            };
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    input.remove();
+                }
+            });
+            
+            input.addEventListener('blur', saveEdit);
+            
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
+        }
+
+        function deleteCell(cell) {
+            breakLinks(cell);
+            cells = cells.filter(c => c !== cell);
+            cell.remove();
+            removeMenus();
+            showStatus('Cell deleted');
+        }
+
+        function removeMenus() {
+            document.querySelectorAll('.menu').forEach(menu => menu.remove());
+            document.querySelectorAll('.cell-input').forEach(input => input.remove());
+        }
+
+        function updateConnections() {
+            const svg = document.getElementById('connections');
+            svg.innerHTML = '';
+            
+            links.forEach(link => {
+                const start = link.start.getBoundingClientRect();
+                const end = link.end.getBoundingClientRect();
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', start.left + start.width/2);
+                line.setAttribute('y1', start.top + start.height/2);
+                line.setAttribute('x2', end.left + end.width/2);
+                line.setAttribute('y2', end.top + end.height/2);
+                line.setAttribute('stroke', '#333');
+                line.setAttribute('stroke-width', '2');
+                
+                svg.appendChild(line);
+            });
+        }
+
+        function saveState() {
+            const state = {
+                cells: cells.map(cell => ({
+                    x: parseInt(cell.style.left),
+                    y: parseInt(cell.style.top),
+                    text: cell.textContent,
+                    color: {
+                        bg: cell.style.backgroundColor,
+                        text: cell.style.color
+                    }
+                })),
+                links: links.map(link => ({
+                    startIndex: cells.indexOf(link.start),
+                    endIndex: cells.indexOf(link.end)
+                }))
+            };
+            
+            localStorage.setItem('cellState', JSON.stringify(state));
+            showStatus('State saved!');
+        }
+
+        function loadState() {
+            const state = localStorage.getItem('cellState');
+            if (!state) return;
+            
+            const data = JSON.parse(state);
+            
+            cells.forEach(cell => cell.remove());
+            cells = [];
+            links = [];
+            
+            data.cells.forEach(cellData => {
+                createCell(cellData.x, cellData.y, cellData.text, cellData.color);
+            });
+            
+            data.links.forEach(linkData => {
+                links.push({
+                    start: cells[linkData.startIndex],
+                    end: cells[linkData.endIndex]
+                });
+            });
+            
+            updateConnections();
+        }
+
+        document.addEventListener('mousemove', e => {
+            if (!isDragging || linkMode) return;
+            
+            currentCell.style.left = (e.clientX - offset.x) + 'px';
+            currentCell.style.top = (e.clientY - offset.y) + 'px';
+            updateConnections();
+        });
+
+        document.addEventListener('touchmove', e => {
+            if (!isDragging || linkMode) return;
+            
+            const touch = e.touches[0];
+            currentCell.style.left = (touch.clientX - offset.x) + 'px';
+            currentCell.style.top = (touch.clientY - offset.y) + 'px';
+            updateConnections();
+            e.preventDefault();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        document.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.cell') && 
+                !e.target.closest('.menu') && 
+                !e.target.closest('.cell-input')) {
+                removeMenus();
+                if (linkMode) {
+                    linkMode = false;
+                    if (linkStart) {
+                        linkStart.classList.remove('linking');
+                        linkStart = null;
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('load', loadState);
+    </script>
+</body>
+</html>
