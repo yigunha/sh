@@ -71,6 +71,7 @@
 <body>
     <button id="saveButton">GitHub에 저장</button>
     <button id="loadButton">GitHub에서 불러오기</button>
+    <button id="addCellButton">셀 추가</button>
 
     <div id="canvas">
         <svg id="connections"></svg>
@@ -179,8 +180,8 @@
         function createCell(x, y) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.style.left = (x - 60) + 'px';
-            cell.style.top = (y - 60) + 'px';
+            cell.style.left = x + 'px';
+            cell.style.top = y + 'px';
 
             const imageContainer = document.createElement('div');
             imageContainer.className = 'image-container';
@@ -231,6 +232,13 @@
 
         document.getElementById('saveButton').addEventListener('click', saveToGitHub);
         document.getElementById('loadButton').addEventListener('click', loadFromGitHub);
+
+        // 새로운 셀 추가 버튼 이벤트
+        document.getElementById('addCellButton').addEventListener('click', () => {
+            const x = Math.random() * 400 + 50; // 랜덤 X 위치
+            const y = Math.random() * 400 + 50; // 랜덤 Y 위치
+            createCell(x, y);
+        });
     </script>
 </body>
 </html>
