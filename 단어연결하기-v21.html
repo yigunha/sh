@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GitHub Integration</title>
     <style>
+        /* 기존 스타일 유지 */
         .cell {
             position: absolute;
             width: 120px;
@@ -34,12 +34,27 @@
             align-items: center;
             justify-content: center;
             margin: 5px;
+            position: relative;
         }
 
         .cell .image-container img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            cursor: pointer;
+        }
+
+        .image-upload-button {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #666;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 5px;
+            cursor: pointer;
+            font-size: 10px;
         }
 
         .connector {
@@ -66,129 +81,153 @@
             height: 100%;
             pointer-events: none;
         }
+
+        .hidden {
+            display: none;
+        }
+
+        /* 전체화면 모달 스타일 추가 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .close-button {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* 저장 버튼 스타일 */
+        #saveBtn {
+            margin: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <button id="saveButton">GitHub에 저장</button>
-    <button id="loadButton">GitHub에서 불러오기</button>
-    <button id="addCellButton">셀 추가</button>
-
     <div id="canvas">
         <svg id="connections"></svg>
     </div>
 
+    <!-- 모달 추가 -->
+    <div class="modal-overlay" id="imageModal">
+        <div class="modal-content">
+            <button class="close-button">&times;</button>
+            <img id="modalImage" src="" alt="Fullscreen image">
+        </div>
+    </div>
+
+    <!-- 저장 버튼 추가 -->
+    <button id="saveBtn">Save to GitHub</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        const GITHUB_TOKEN = "your_personal_access_token"; // GitHub Personal Access Token
-        const REPO_OWNER = "your_github_username"; // GitHub 사용자 이름
-        const REPO_NAME = "your_repo_name"; // 저장소 이름
-        const FILE_PATH = "diagram_data.json"; // 저장할 파일 경로
-        const BRANCH = "main"; // 브랜치 이름
+        let selectedConnector = null;
+        let connections = [];
+        let cellCount = 0;
 
-        async function saveToGitHub() {
-            const cells = [];
-            const canvas = document.getElementById('canvas');
-            const cellElements = canvas.querySelectorAll('.cell');
+        // 모달 관련 요소
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        const closeButton = document.querySelector('.close-button');
 
-            cellElements.forEach((cell, index) => {
-                const image = cell.querySelector('img');
-                const input = cell.querySelector('input[type="text"]');
-                const cellData = {
-                    id: index + 1,
-                    x: parseInt(cell.style.left),
-                    y: parseInt(cell.style.top),
-                    text: input.value,
-                    image: image.src
-                };
-                cells.push(cellData);
-            });
+        // 모달 닫기 이벤트
+        closeButton.onclick = function() {
+            modal.style.display = 'none';
+        }
 
-            const data = {
-                cells: cells,
-                connections: [] // 연결 정보 추가 가능
-            };
-
-            const jsonData = JSON.stringify(data, null, 2);
-
-            // GitHub API로 저장
-            try {
-                const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
-                const response = await fetch(url, {
-                    method: "GET",
-                    headers: {
-                        "Authorization": `Bearer ${GITHUB_TOKEN}`,
-                        "Accept": "application/vnd.github.v3+json"
-                    }
-                });
-
-                const content = await response.json();
-                const sha = content.sha; // 기존 파일의 SHA 필요
-
-                await fetch(url, {
-                    method: "PUT",
-                    headers: {
-                        "Authorization": `Bearer ${GITHUB_TOKEN}`,
-                        "Accept": "application/vnd.github.v3+json"
-                    },
-                    body: JSON.stringify({
-                        message: "Update diagram data",
-                        content: btoa(unescape(encodeURIComponent(jsonData))),
-                        branch: BRANCH,
-                        sha: sha // 기존 SHA 제공
-                    })
-                });
-
-                alert("GitHub에 데이터가 저장되었습니다.");
-            } catch (error) {
-                console.error("GitHub 저장 중 오류:", error);
-                alert("GitHub 저장 중 오류가 발생했습니다.");
+        modal.onclick = function(e) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
             }
         }
 
-        async function loadFromGitHub() {
-            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
-            try {
-                const response = await fetch(url, {
-                    method: "GET",
-                    headers: {
-                        "Authorization": `Bearer ${GITHUB_TOKEN}`,
-                        "Accept": "application/vnd.github.v3+json"
-                    }
-                });
-
-                const content = await response.json();
-                const data = JSON.parse(atob(content.content));
-                restoreData(data);
-
-                alert("GitHub에서 데이터가 불러와졌습니다.");
-            } catch (error) {
-                console.error("GitHub 불러오기 중 오류:", error);
-                alert("GitHub에서 데이터를 불러오는 중 오류가 발생했습니다.");
+        document.getElementById('canvas').addEventListener('click', function(e) {
+            if (e.target === this && e.ctrlKey) {
+                createCell(e.offsetX, e.offsetY);
             }
-        }
-
-        function restoreData(data) {
-            const canvas = document.getElementById('canvas');
-            canvas.innerHTML = '<svg id="connections"></svg>'; // 초기화
-
-            data.cells.forEach(cellData => {
-                const cell = createCell(cellData.x, cellData.y);
-                cell.querySelector('input[type="text"]').value = cellData.text;
-                cell.querySelector('img').src = cellData.image;
-            });
-        }
+        });
 
         function createCell(x, y) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.style.left = x + 'px';
-            cell.style.top = y + 'px';
-
+            cell.style.left = (x - 60) + 'px';
+            cell.style.top = (y - 60) + 'px';
+            
             const imageContainer = document.createElement('div');
             imageContainer.className = 'image-container';
-
+            
             const img = document.createElement('img');
-            img.src = 'placeholder.png';
+            img.src = '/api/placeholder/80/80';
+            
+            // 이미지 더블클릭 이벤트 추가
+            img.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                modalImg.src = this.src;
+                modal.style.display = 'flex';
+            });
+            
             imageContainer.appendChild(img);
+            
+            const uploadButton = document.createElement('button');
+            uploadButton.className = 'image-upload-button';
+            uploadButton.textContent = '이미지';
+            imageContainer.appendChild(uploadButton);
+            
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.className = 'hidden';
+            imageContainer.appendChild(fileInput);
+            
+            uploadButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function(e) {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
 
             cell.appendChild(imageContainer);
 
@@ -202,26 +241,33 @@
             cell.appendChild(connector);
 
             document.getElementById('canvas').appendChild(cell);
+            
             makeDraggable(cell);
-
+            makeConnectable(connector);
+            
+            cellCount++;
             return cell;
         }
 
+        // 드래그 가능 기능
         function makeDraggable(cell) {
             let isDragging = false;
             let currentX;
             let currentY;
 
             cell.addEventListener('mousedown', function(e) {
-                isDragging = true;
-                currentX = e.clientX - cell.offsetLeft;
-                currentY = e.clientY - cell.offsetTop;
+                if (e.target === cell) {
+                    isDragging = true;
+                    currentX = e.clientX - cell.offsetLeft;
+                    currentY = e.clientY - cell.offsetTop;
+                }
             });
 
             document.addEventListener('mousemove', function(e) {
                 if (isDragging) {
                     cell.style.left = (e.clientX - currentX) + 'px';
                     cell.style.top = (e.clientY - currentY) + 'px';
+                    updateConnections();
                 }
             });
 
@@ -230,15 +276,101 @@
             });
         }
 
-        document.getElementById('saveButton').addEventListener('click', saveToGitHub);
-        document.getElementById('loadButton').addEventListener('click', loadFromGitHub);
+        // 연결 가능 기능
+        function makeConnectable(connector) {
+            connector.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                selectedConnector = connector;
+            });
 
-        // 새로운 셀 추가 버튼 이벤트
-        document.getElementById('addCellButton').addEventListener('click', () => {
-            const x = Math.random() * 400 + 50; // 랜덤 X 위치
-            const y = Math.random() * 400 + 50; // 랜덤 Y 위치
-            createCell(x, y);
-        });
+            connector.addEventListener('mouseup', function(e) {
+                e.stopPropagation();
+                if (selectedConnector && selectedConnector !== connector) {
+                    if (!connections.some(conn => 
+                        (conn.start === selectedConnector && conn.end === connector) ||
+                        (conn.start === connector && conn.end === selectedConnector)
+                    )) {
+                        connections.push({
+                            start: selectedConnector,
+                            end: connector
+                        });
+                        updateConnections();
+                    }
+                }
+                selectedConnector = null;
+            });
+        }
+
+        function updateConnections() {
+            const svg = document.getElementById('connections');
+            svg.innerHTML = '';
+
+            connections.forEach(connection => {
+                const start = getConnectorCenter(connection.start);
+                const end = getConnectorCenter(connection.end);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', start.x);
+                line.setAttribute('y1', start.y);
+                line.setAttribute('x2', end.x);
+                line.setAttribute('y2', end.y);
+                line.setAttribute('stroke', '#666');
+                line.setAttribute('stroke-width', '2');
+
+                svg.appendChild(line);
+            });
+        }
+
+        function getConnectorCenter(connector) {
+            const rect = connector.getBoundingClientRect();
+            const canvas = document.getElementById('canvas').getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2 - canvas.left,
+                y: rect.top + rect.height / 2 - canvas.top
+            };
+        }
+
+        // 저장 버튼 클릭 시
+        document.getElementById('saveBtn').addEventListener('click', saveToGitHub);
+
+        async function saveToGitHub() {
+            const content = [];
+            
+            // 셀 내용과 이미지를 수집
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const text = cell.querySelector('input').value;
+                const image = cell.querySelector('.image-container img').src;
+                content.push({ text, image });
+            });
+
+            // GitHub API 호출에 필요한 정보
+            const token = 'your_github_token';  // GitHub OAuth Token
+            const repo = 'your_username/your_repo'; // GitHub 리포지토리 (예: 'username/repo')
+            const fileName = 'content.json'; // 저장할 파일 이름
+
+            const apiUrl = `https://api.github.com/repos/${repo}/contents/${fileName}`;
+            const contentJson = JSON.stringify(content);
+
+            // GitHub API를 통해 파일 업로드
+            try {
+                const response = await axios.put(apiUrl, {
+                    message: 'Add new content',
+                    committer: { name: 'Your Name', email: 'your_email@example.com' },
+                    content: btoa(contentJson), // base64 인코딩
+                }, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                    }
+                });
+
+                alert('Content saved to GitHub!');
+            } catch (error) {
+                console.error('Error saving to GitHub:', error);
+                alert('Failed to save content.');
+            }
+        }
     </script>
 </body>
 </html>
