@@ -157,6 +157,7 @@
         let selectedConnector = null;
         let connections = [];
         let cellCount = 0;
+        let cells = [];
 
         // 모달 관련 요소
         const modal = document.getElementById('imageModal');
@@ -185,38 +186,38 @@
             cell.className = 'cell';
             cell.style.left = (x - 60) + 'px';
             cell.style.top = (y - 60) + 'px';
-            
+
             const imageContainer = document.createElement('div');
             imageContainer.className = 'image-container';
-            
+
             const img = document.createElement('img');
             img.src = '/api/placeholder/80/80';
-            
+
             // 이미지 더블클릭 이벤트 추가
             img.addEventListener('dblclick', function(e) {
                 e.stopPropagation();
                 modalImg.src = this.src;
                 modal.style.display = 'flex';
             });
-            
+
             imageContainer.appendChild(img);
-            
+
             const uploadButton = document.createElement('button');
             uploadButton.className = 'image-upload-button';
             uploadButton.textContent = '이미지';
             imageContainer.appendChild(uploadButton);
-            
+
             const fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.accept = 'image/*';
             fileInput.className = 'hidden';
             imageContainer.appendChild(fileInput);
-            
+
             uploadButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 fileInput.click();
             });
-            
+
             fileInput.addEventListener('change', function(e) {
                 const file = this.files[0];
                 if (file) {
@@ -240,10 +241,12 @@
             cell.appendChild(connector);
 
             document.getElementById('canvas').appendChild(cell);
-            
+
             makeDraggable(cell);
             makeConnectable(connector);
-            
+
+            cells.push({ element: cell, x: x - 60, y: y - 60 });
+
             cellCount++;
             return cell;
         }
@@ -334,14 +337,24 @@
 
         // 로컬 스토리지에 저장
         function saveToLocalStorage() {
-            const content = [];
-            
-            // 셀 내용과 이미지를 수집
-            const cells = document.querySelectorAll('.cell');
+            const content = {
+                cells: [],
+                connections: []
+            };
+
+            // 셀 내용과 이미지 및 위치 저장
             cells.forEach(cell => {
-                const text = cell.querySelector('input').value;
-                const image = cell.querySelector('.image-container img').src;
-                content.push({ text, image });
+                const text = cell.element.querySelector('input').value;
+                const image = cell.element.querySelector('.image-container img').src;
+                content.cells.push({ text, image, x: cell.x, y: cell.y });
+            });
+
+            // 연결 정보 저장
+            connections.forEach(conn => {
+                content.connections.push({
+                    start: conn.start,
+                    end: conn.end
+                });
             });
 
             // 로컬 스토리지에 저장
@@ -354,10 +367,16 @@
             const savedData = localStorage.getItem('canvasData');
             if (savedData) {
                 const content = JSON.parse(savedData);
-                content.forEach(item => {
-                    const cell = createCell(100, 100); // 기본 위치
+                content.cells.forEach(item => {
+                    const cell = createCell(item.x + 60, item.y + 60); // 위치 복원
                     cell.querySelector('input').value = item.text;
                     cell.querySelector('.image-container img').src = item.image;
+                });
+
+                content.connections.forEach(item => {
+                    const start = document.querySelector('.cell').children[0]; // 임시 코드
+                    const end = document.querySelector('.cell').children[0]; // 임시 코드
+                    connections.push({ start, end });
                 });
             }
         };
