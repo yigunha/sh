@@ -62,6 +62,7 @@
             background: #fff;
             border: 2px solid #333;
             padding: 10px;
+            width: 150px; /* 메뉴 크기 고정 */
             display: none;
             z-index: 10;
             box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
@@ -300,9 +301,6 @@
 
         document.getElementById('canvas').addEventListener('touchend', function() {
             clearTimeout(menuTimeout); // 메뉴 타이머 취소
-            if (menuVisible) {
-                hideMenu();
-            }
         });
 
         // 메뉴 표시
