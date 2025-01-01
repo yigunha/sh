@@ -240,7 +240,9 @@
 
    	    if (e.type === 'touchstart') {
             // 모바일에서의 더블클릭을 처리
-        	if (timeDiff < 300) {
+	        const touchtimeDiff = currentTime - lastTouchTime;
+
+        	if (touchtimeDiff < 300) {
             	   showMenu(e);
         	}
     	    } else {
