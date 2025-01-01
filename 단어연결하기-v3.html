@@ -55,11 +55,40 @@
         .hidden {
             display: none;
         }
+
+        /* 메뉴 스타일 */
+        #menu {
+            position: absolute;
+            background: #fff;
+            border: 2px solid #333;
+            padding: 10px;
+            display: none;
+            z-index: 10;
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #menu button {
+            display: block;
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        #menu button:hover {
+            background-color: #f0f0f0;
+        }
+
     </style>
 </head>
 <body>
     <div id="canvas">
         <svg id="connections"></svg>
+    </div>
+
+    <div id="menu">
+        <button id="addCellBtn">셀 추가</button>
+        <button id="cancelBtn">취소</button>
     </div>
 
     <button id="saveBtn">저장</button> <!-- 저장 버튼 추가 -->
@@ -72,6 +101,8 @@
         let lastTouchTime = 0;
         const DOUBLE_TAP_TIME_LIMIT = 300; // 더블탭을 위한 시간 제한 (300ms)
         let longPressTimeout; // 길게 누른 시간 처리
+        let menuVisible = false; // 메뉴가 보이는지 여부
+        let menuTimeout; // 메뉴 타이머
 
         // 저장된 셀 데이터 및 연결선 복원
         function loadFromLocalStorage() {
@@ -257,21 +288,52 @@
             }
         }
 
-        // 길게 누름으로 셀 추가
+        // 길게 누름으로 메뉴 표시
         document.getElementById('canvas').addEventListener('touchstart', function(e) {
             e.preventDefault(); // 기본 터치 동작 방지
-            longPressTimeout = setTimeout(() => {
-                if (e.target === document.getElementById('canvas')) {
-                    const rect = e.target.getBoundingClientRect();
-                    const x = e.changedTouches[0].clientX - rect.left;
-                    const y = e.changedTouches[0].clientY - rect.top;
-                    createCell(x, y);
-                }
-            }, 800); // 800ms 동안 길게 누르면 셀 추가
+            if (e.target === document.getElementById('canvas')) {
+                menuTimeout = setTimeout(() => {
+                    showMenu(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+                }, 800); // 800ms 동안 길게 누르면 메뉴 표시
+            }
         });
 
         document.getElementById('canvas').addEventListener('touchend', function() {
-            clearTimeout(longPressTimeout); // 길게 누른 시간 취소
+            clearTimeout(menuTimeout); // 메뉴 타이머 취소
+            if (menuVisible) {
+                hideMenu();
+            }
+        });
+
+        // 메뉴 표시
+        function showMenu(x, y) {
+            const menu = document.getElementById('menu');
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+            menu.style.display = 'block';
+            menuVisible = true;
+        }
+
+        // 메뉴 숨기기
+        function hideMenu() {
+            const menu = document.getElementById('menu');
+            menu.style.display = 'none';
+            menuVisible = false;
+        }
+
+        // 셀 추가 버튼 클릭
+        document.getElementById('addCellBtn').addEventListener('click', function() {
+            const menu = document.getElementById('menu');
+            const rect = menu.getBoundingClientRect();
+            const x = rect.left;
+            const y = rect.top;
+            createCell(x, y);
+            hideMenu(); // 메뉴 숨기기
+        });
+
+        // 취소 버튼 클릭
+        document.getElementById('cancelBtn').addEventListener('click', function() {
+            hideMenu();
         });
 
         // double click으로 셀 추가
