@@ -220,6 +220,7 @@
         function handleClick(e) {
             const currentTime = new Date().getTime();
             const timeDiff = currentTime - lastClickTime;
+	    const touchtimeDiff = currentTime - lastTouchTime;
             
             if (isDragging) {
                 isDragging = false;
@@ -240,9 +241,8 @@
 
    	    if (e.type === 'touchstart') {
             // 모바일에서의 더블클릭을 처리
-	        const touchtimeDiff = currentTime - lastTouchTime;
 
-        	if (touchtimeDiff < 300) {
+        	if (touchtimeDiff < 300 && touchtimeDiff > 0) {
             	   showMenu(e);
         	}
     	    } else {
@@ -253,6 +253,7 @@
     	   }
             
             lastClickTime = currentTime;
+            lastTouchTime = currentTime;
         }
 
         function showMenu(e) {
