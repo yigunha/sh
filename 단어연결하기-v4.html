@@ -237,13 +237,17 @@
                 return;
             }
 
-            if (timeDiff < 300) {
-                // Double click
-                showMenu(e);
-            } else {
-                // Single click
-
-            }
+   	    if (e.type === 'touchstart') {
+            // 모바일에서의 더블클릭을 처리
+        	if (timeDiff < 300) {
+            	   showMenu(e);
+        	}
+    	    } else {
+        	// 데스크탑에서의 더블클릭 처리
+        	if (timeDiff < 300) {
+            	   showMenu(e);
+        	}
+    	   }
             
             lastClickTime = currentTime;
         }
