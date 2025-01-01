@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GitHub Integration</title>
+    <style>
+        .cell {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: move;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+        }
+
+        .cell input {
+            width: 90%;
+            border: none;
+            text-align: center;
+            outline: none;
+        }
+
+        .cell .image-container {
+            width: 80px;
+            height: 80px;
+            border: 1px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 5px;
+        }
+
+        .cell .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .connector {
+            width: 10px;
+            height: 10px;
+            background: #666;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        #canvas {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: #f0f0f0;
+            overflow: hidden;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <button id="saveButton">GitHub에 저장</button>
+    <button id="loadButton">GitHub에서 불러오기</button>
+
+    <div id="canvas">
+        <svg id="connections"></svg>
+    </div>
+
+    <script>
+        const GITHUB_TOKEN = "your_personal_access_token"; // GitHub Personal Access Token
+        const REPO_OWNER = "your_github_username"; // GitHub 사용자 이름
+        const REPO_NAME = "your_repo_name"; // 저장소 이름
+        const FILE_PATH = "diagram_data.json"; // 저장할 파일 경로
+        const BRANCH = "main"; // 브랜치 이름
+
+        async function saveToGitHub() {
+            const cells = [];
+            const canvas = document.getElementById('canvas');
+            const cellElements = canvas.querySelectorAll('.cell');
+
+            cellElements.forEach((cell, index) => {
+                const image = cell.querySelector('img');
+                const input = cell.querySelector('input[type="text"]');
+                const cellData = {
+                    id: index + 1,
+                    x: parseInt(cell.style.left),
+                    y: parseInt(cell.style.top),
+                    text: input.value,
+                    image: image.src
+                };
+                cells.push(cellData);
+            });
+
+            const data = {
+                cells: cells,
+                connections: [] // 연결 정보 추가 가능
+            };
+
+            const jsonData = JSON.stringify(data, null, 2);
+
+            // GitHub API로 저장
+            try {
+                const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                        "Accept": "application/vnd.github.v3+json"
+                    }
+                });
+
+                const content = await response.json();
+                const sha = content.sha; // 기존 파일의 SHA 필요
+
+                await fetch(url, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                        "Accept": "application/vnd.github.v3+json"
+                    },
+                    body: JSON.stringify({
+                        message: "Update diagram data",
+                        content: btoa(unescape(encodeURIComponent(jsonData))),
+                        branch: BRANCH,
+                        sha: sha // 기존 SHA 제공
+                    })
+                });
+
+                alert("GitHub에 데이터가 저장되었습니다.");
+            } catch (error) {
+                console.error("GitHub 저장 중 오류:", error);
+                alert("GitHub 저장 중 오류가 발생했습니다.");
+            }
+        }
+
+        async function loadFromGitHub() {
+            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+            try {
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                        "Accept": "application/vnd.github.v3+json"
+                    }
+                });
+
+                const content = await response.json();
+                const data = JSON.parse(atob(content.content));
+                restoreData(data);
+
+                alert("GitHub에서 데이터가 불러와졌습니다.");
+            } catch (error) {
+                console.error("GitHub 불러오기 중 오류:", error);
+                alert("GitHub에서 데이터를 불러오는 중 오류가 발생했습니다.");
+            }
+        }
+
+        function restoreData(data) {
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = '<svg id="connections"></svg>'; // 초기화
+
+            data.cells.forEach(cellData => {
+                const cell = createCell(cellData.x, cellData.y);
+                cell.querySelector('input[type="text"]').value = cellData.text;
+                cell.querySelector('img').src = cellData.image;
+            });
+        }
+
+        function createCell(x, y) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.style.left = (x - 60) + 'px';
+            cell.style.top = (y - 60) + 'px';
+
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'image-container';
+
+            const img = document.createElement('img');
+            img.src = 'placeholder.png';
+            imageContainer.appendChild(img);
+
+            cell.appendChild(imageContainer);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Text';
+            cell.appendChild(input);
+
+            const connector = document.createElement('div');
+            connector.className = 'connector';
+            cell.appendChild(connector);
+
+            document.getElementById('canvas').appendChild(cell);
+            makeDraggable(cell);
+
+            return cell;
+        }
+
+        function makeDraggable(cell) {
+            let isDragging = false;
+            let currentX;
+            let currentY;
+
+            cell.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                currentX = e.clientX - cell.offsetLeft;
+                currentY = e.clientY - cell.offsetTop;
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    cell.style.left = (e.clientX - currentX) + 'px';
+                    cell.style.top = (e.clientY - currentY) + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+            });
+        }
+
+        document.getElementById('saveButton').addEventListener('click', saveToGitHub);
+        document.getElementById('loadButton').addEventListener('click', loadFromGitHub);
+    </script>
+</body>
+</html>
