@@ -2,16 +2,18 @@
 <html>
 <head>
     <style>
+        /* 기존 스타일 유지 */
         .cell {
             position: absolute;
             width: 120px;
-            height: 40px; /* 텍스트 한 줄만 입력할 수 있도록 높이 조정 */
+            height: 40px; /* 문자 한 줄 크기로 조정 */
             background: white;
             border: 2px solid #333;
             border-radius: 5px;
             cursor: move;
             user-select: none;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 5px;
@@ -30,6 +32,7 @@
             background: #666;
             border-radius: 50%;
             cursor: pointer;
+            position: absolute;
         }
 
         #canvas {
@@ -49,44 +52,8 @@
             pointer-events: none;
         }
 
-        /* 전체화면 모달 스타일 추가 */
-        .modal-overlay {
+        .hidden {
             display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            position: relative;
-            max-width: 90%;
-            max-height: 90%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content img {
-            max-width: 100%;
-            max-height: 90vh;
-            object-fit: contain;
-        }
-
-        .close-button {
-            position: absolute;
-            top: -40px;
-            right: 0;
-            color: white;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
         }
     </style>
 </head>
@@ -99,10 +66,11 @@
     <button id="clearBtn">전체 삭제</button> <!-- 전체 삭제 버튼 추가 -->
 
     <script>
-        let selectedCell = null; // 첫 번째 셀
-        let connectingCell = null; // 두 번째 셀
+        let selectedConnector = null;
         let connections = [];
         let cellCount = 0;
+        let lastTouchTime = 0;
+        const DOUBLE_TAP_TIME_LIMIT = 300; // 더블탭을 위한 시간 제한 (300ms)
 
         // 저장된 셀 데이터 및 연결선 복원
         function loadFromLocalStorage() {
@@ -139,9 +107,23 @@
             input.value = text; // 저장된 텍스트 복원
             cell.appendChild(input);
 
+            const connectorStart = document.createElement('div');
+            connectorStart.className = 'connector';
+            connectorStart.style.left = '-5px';  // 좌측 끝에 위치
+            connectorStart.style.top = '50%';   // 중앙에 위치
+            cell.appendChild(connectorStart);
+
+            const connectorEnd = document.createElement('div');
+            connectorEnd.className = 'connector';
+            connectorEnd.style.right = '-5px';  // 우측 끝에 위치
+            connectorEnd.style.top = '50%';     // 중앙에 위치
+            cell.appendChild(connectorEnd);
+
             document.getElementById('canvas').appendChild(cell);
 
             makeDraggable(cell);
+            makeConnectable(connectorStart);
+            makeConnectable(connectorEnd);
 
             cellCount++;
             return cell;
@@ -174,14 +156,22 @@
             });
         }
 
+        // 셀 연결 가능하도록 설정
+        function makeConnectable(connector) {
+            connector.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                selectedConnector = connector;
+            });
+        }
+
         // 연결선 업데이트
         function updateConnections() {
             const svg = document.getElementById('connections');
             svg.innerHTML = '';
 
             connections.forEach(connection => {
-                const start = getCellCenter(connection.start);
-                const end = getCellCenter(connection.end);
+                const start = getConnectorCenter(connection.start);
+                const end = getConnectorCenter(connection.end);
 
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 line.setAttribute('x1', start.x);
@@ -195,8 +185,8 @@
             });
         }
 
-        function getCellCenter(cell) {
-            const rect = cell.getBoundingClientRect();
+        function getConnectorCenter(connector) {
+            const rect = connector.getBoundingClientRect();
             const canvas = document.getElementById('canvas').getBoundingClientRect();
             return {
                 x: rect.left + rect.width / 2 - canvas.left,
@@ -206,7 +196,9 @@
 
         // 연결선 추가
         function addConnection(startCell, endCell) {
-            connections.push({ start: startCell, end: endCell });
+            const startConnector = startCell.querySelector('.connector');
+            const endConnector = endCell.querySelector('.connector');
+            connections.push({ start: startConnector, end: endConnector });
             updateConnections();
         }
 
@@ -225,8 +217,8 @@
             });
 
             const connectionData = connections.map(conn => ({
-                startCell: conn.start.id,
-                endCell: conn.end.id
+                startCell: conn.start.parentElement.id,
+                endCell: conn.end.parentElement.id
             }));
 
             localStorage.setItem('cells', JSON.stringify(cells));
@@ -244,24 +236,33 @@
         // 페이지 로딩 시 저장된 내용 로드
         loadFromLocalStorage();
 
-        // double click으로 셀 추가 및 연결
+        // 더블클릭을 통해 셀 연결
+        document.getElementById('canvas').addEventListener('touchstart', function(e) {
+            const currentTime = new Date().getTime();
+            if (currentTime - lastTouchTime <= DOUBLE_TAP_TIME_LIMIT) {
+                handleDoubleClick(e);
+            }
+            lastTouchTime = currentTime;
+        });
+
+        function handleDoubleClick(e) {
+            if (e.target.classList.contains('cell')) {
+                if (selectedConnector && selectedConnector !== e.target.querySelector('.connector')) {
+                    addConnection(selectedConnector.parentElement, e.target);
+                    selectedConnector = null;  // 연결 후 선택 초기화
+                } else {
+                    selectedConnector = e.target.querySelector('.connector');
+                }
+            }
+        }
+
+        // double click으로 셀 추가
         document.getElementById('canvas').addEventListener('dblclick', function(e) {
             if (e.target === document.getElementById('canvas')) {
-                const x = e.clientX;
-                const y = e.clientY;
-                createCell(x, y); // 빈 공간을 더블클릭하면 셀 생성
-            } else if (e.target.classList.contains('cell')) {
-                if (selectedCell === e.target) {
-                    connectingCell = null; // 취소
-                    selectedCell = null; // 초기화
-                } else if (selectedCell === null) {
-                    selectedCell = e.target; // 첫 번째 셀 선택
-                } else {
-                    connectingCell = e.target; // 두 번째 셀 선택
-                    addConnection(selectedCell, connectingCell); // 연결 추가
-                    selectedCell = null; // 초기화
-                    connectingCell = null; // 초기화
-                }
+                const rect = e.target.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                createCell(x, y);
             }
         });
     </script>
