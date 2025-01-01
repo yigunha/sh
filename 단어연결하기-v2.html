@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .cell {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: move;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+        }
+
+        .cell input {
+            width: 90%;
+            border: none;
+            text-align: center;
+            outline: none;
+        }
+
+        .cell .image-container {
+            width: 80px;
+            height: 80px;
+            border: 1px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 5px;
+        }
+
+        .cell .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .connector {
+            width: 10px;
+            height: 10px;
+            background: #666;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        #canvas {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: #f0f0f0;
+            overflow: hidden;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <button id="saveButton">저장</button>
+    <button id="loadButton">불러오기</button>
+    <input type="file" id="loadFile" style="display: none;">
+
+    <div id="canvas">
+        <svg id="connections"></svg>
+    </div>
+
+    <script>
+        let connections = [];
+
+        document.getElementById('canvas').addEventListener('click', function(e) {
+            if (e.target === this && e.ctrlKey) {
+                createCell(e.offsetX, e.offsetY);
+            }
+        });
+
+        function createCell(x, y) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.style.left = (x - 60) + 'px';
+            cell.style.top = (y - 60) + 'px';
+
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'image-container';
+
+            const img = document.createElement('img');
+            img.src = 'placeholder.png';
+            imageContainer.appendChild(img);
+
+            cell.appendChild(imageContainer);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Text';
+            cell.appendChild(input);
+
+            const connector = document.createElement('div');
+            connector.className = 'connector';
+            cell.appendChild(connector);
+
+            document.getElementById('canvas').appendChild(cell);
+            makeDraggable(cell);
+
+            return cell;
+        }
+
+        function makeDraggable(cell) {
+            let isDragging = false;
+            let currentX;
+            let currentY;
+
+            cell.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                currentX = e.clientX - cell.offsetLeft;
+                currentY = e.clientY - cell.offsetTop;
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    cell.style.left = (e.clientX - currentX) + 'px';
+                    cell.style.top = (e.clientY - currentY) + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+            });
+        }
+
+        function saveData() {
+            const cells = [];
+            const canvas = document.getElementById('canvas');
+            const cellElements = canvas.querySelectorAll('.cell');
+
+            cellElements.forEach((cell, index) => {
+                const image = cell.querySelector('img');
+                const input = cell.querySelector('input[type="text"]');
+                const cellData = {
+                    id: index + 1,
+                    x: parseInt(cell.style.left),
+                    y: parseInt(cell.style.top),
+                    text: input.value,
+                    image: image.src
+                };
+                cells.push(cellData);
+            });
+
+            const data = {
+                cells: cells,
+                connections: []
+            };
+
+            const jsonData = JSON.stringify(data, null, 2);
+
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram_data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadData(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = JSON.parse(e.target.result);
+                    restoreData(data);
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function restoreData(data) {
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = '<svg id="connections"></svg>'; // 초기화
+
+            data.cells.forEach(cellData => {
+                const cell = createCell(cellData.x, cellData.y);
+                cell.querySelector('input[type="text"]').value = cellData.text;
+                cell.querySelector('img').src = cellData.image;
+            });
+        }
+
+        document.getElementById('saveButton').addEventListener('click', saveData);
+        document.getElementById('loadButton').addEventListener('click', () => {
+            document.getElementById('loadFile').click();
+        });
+        document.getElementById('loadFile').addEventListener('change', loadData);
+    </script>
+</body>
+</html>
