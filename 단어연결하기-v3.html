@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .cell {
+            position: absolute;
+            width: 120px;
+            height: 40px; /* 텍스트 한 줄만 입력할 수 있도록 높이 조정 */
+            background: white;
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: move;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+        }
+
+        .cell input {
+            width: 90%;
+            border: none;
+            text-align: center;
+            outline: none;
+        }
+
+        .connector {
+            width: 10px;
+            height: 10px;
+            background: #666;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        #canvas {
+            position: relative;
+            width: 100%;
+            height: 800px; /* 사용 영역 높이 확장 */
+            background: #f0f0f0;
+            overflow: hidden;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* 전체화면 모달 스타일 추가 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .close-button {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas">
+        <svg id="connections"></svg>
+    </div>
+
+    <button id="saveBtn">저장</button> <!-- 저장 버튼 추가 -->
+    <button id="clearBtn">전체 삭제</button> <!-- 전체 삭제 버튼 추가 -->
+
+    <script>
+        let selectedCell = null; // 첫 번째 셀
+        let connectingCell = null; // 두 번째 셀
+        let connections = [];
+        let cellCount = 0;
+
+        // 저장된 셀 데이터 및 연결선 복원
+        function loadFromLocalStorage() {
+            const cellsData = JSON.parse(localStorage.getItem('cells') || '[]');
+            const connectionsData = JSON.parse(localStorage.getItem('connections') || '[]');
+
+            // 셀 생성 및 위치 설정
+            cellsData.forEach(cellData => {
+                const cell = createCell(cellData.left, cellData.top, cellData.text);
+                cell.querySelector('input').value = cellData.text;
+            });
+
+            // 연결선 복원 및 셀 위치에 맞게 연결선 재생성
+            connectionsData.forEach(connectionData => {
+                const startCell = document.getElementById(connectionData.startCell);
+                const endCell = document.getElementById(connectionData.endCell);
+                if (startCell && endCell) {
+                    addConnection(startCell, endCell);
+                }
+            });
+        }
+
+        // 셀 생성
+        function createCell(x, y, text = '') {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = 'cell-' + cellCount;
+            cell.style.left = x + 'px';
+            cell.style.top = y + 'px';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Text';
+            input.value = text; // 저장된 텍스트 복원
+            cell.appendChild(input);
+
+            document.getElementById('canvas').appendChild(cell);
+
+            makeDraggable(cell);
+
+            cellCount++;
+            return cell;
+        }
+
+        // 셀을 드래그할 수 있도록 설정
+        function makeDraggable(cell) {
+            let isDragging = false;
+            let currentX;
+            let currentY;
+
+            cell.addEventListener('mousedown', function(e) {
+                if (e.target === cell) {
+                    isDragging = true;
+                    currentX = e.clientX - cell.offsetLeft;
+                    currentY = e.clientY - cell.offsetTop;
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    cell.style.left = (e.clientX - currentX) + 'px';
+                    cell.style.top = (e.clientY - currentY) + 'px';
+                    updateConnections();
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+            });
+        }
+
+        // 연결선 업데이트
+        function updateConnections() {
+            const svg = document.getElementById('connections');
+            svg.innerHTML = '';
+
+            connections.forEach(connection => {
+                const start = getCellCenter(connection.start);
+                const end = getCellCenter(connection.end);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', start.x);
+                line.setAttribute('y1', start.y);
+                line.setAttribute('x2', end.x);
+                line.setAttribute('y2', end.y);
+                line.setAttribute('stroke', '#666');
+                line.setAttribute('stroke-width', '2');
+
+                svg.appendChild(line);
+            });
+        }
+
+        function getCellCenter(cell) {
+            const rect = cell.getBoundingClientRect();
+            const canvas = document.getElementById('canvas').getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2 - canvas.left,
+                y: rect.top + rect.height / 2 - canvas.top
+            };
+        }
+
+        // 연결선 추가
+        function addConnection(startCell, endCell) {
+            connections.push({ start: startCell, end: endCell });
+            updateConnections();
+        }
+
+        // 저장
+        document.getElementById('saveBtn').addEventListener('click', function() {
+            const cells = [];
+            const cellElements = document.querySelectorAll('.cell');
+            cellElements.forEach(cell => {
+                const input = cell.querySelector('input');
+                cells.push({
+                    id: cell.id,
+                    left: parseInt(cell.style.left),
+                    top: parseInt(cell.style.top),
+                    text: input.value
+                });
+            });
+
+            const connectionData = connections.map(conn => ({
+                startCell: conn.start.id,
+                endCell: conn.end.id
+            }));
+
+            localStorage.setItem('cells', JSON.stringify(cells));
+            localStorage.setItem('connections', JSON.stringify(connectionData));
+        });
+
+        // 전체 삭제
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            if (confirm('모든 셀과 연결선을 삭제하시겠습니까?')) {
+                localStorage.clear();
+                location.reload(); // 페이지 새로 고침
+            }
+        });
+
+        // 페이지 로딩 시 저장된 내용 로드
+        loadFromLocalStorage();
+
+        // double click으로 셀 추가 및 연결
+        document.getElementById('canvas').addEventListener('dblclick', function(e) {
+            if (e.target === document.getElementById('canvas')) {
+                const x = e.clientX;
+                const y = e.clientY;
+                createCell(x, y); // 빈 공간을 더블클릭하면 셀 생성
+            } else if (e.target.classList.contains('cell')) {
+                if (selectedCell === e.target) {
+                    connectingCell = null; // 취소
+                    selectedCell = null; // 초기화
+                } else if (selectedCell === null) {
+                    selectedCell = e.target; // 첫 번째 셀 선택
+                } else {
+                    connectingCell = e.target; // 두 번째 셀 선택
+                    addConnection(selectedCell, connectingCell); // 연결 추가
+                    selectedCell = null; // 초기화
+                    connectingCell = null; // 초기화
+                }
+            }
+        });
+    </script>
+</body>
+</html>
