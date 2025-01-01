@@ -151,9 +151,8 @@
     </div>
 
     <!-- 저장 버튼 추가 -->
-    <button id="saveBtn">Save to GitHub</button>
+    <button id="saveBtn">Save</button>
 
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
         let selectedConnector = null;
         let connections = [];
@@ -331,9 +330,10 @@
         }
 
         // 저장 버튼 클릭 시
-        document.getElementById('saveBtn').addEventListener('click', saveToGitHub);
+        document.getElementById('saveBtn').addEventListener('click', saveToLocalStorage);
 
-        async function saveToGitHub() {
+        // 로컬 스토리지에 저장
+        function saveToLocalStorage() {
             const content = [];
             
             // 셀 내용과 이미지를 수집
@@ -344,33 +344,23 @@
                 content.push({ text, image });
             });
 
-            // GitHub API 호출에 필요한 정보
-            const token = 'your_github_token';  // GitHub OAuth Token
-            const repo = 'your_username/your_repo'; // GitHub 리포지토리 (예: 'username/repo')
-            const fileName = 'content.json'; // 저장할 파일 이름
-
-            const apiUrl = `https://api.github.com/repos/${repo}/contents/${fileName}`;
-            const contentJson = JSON.stringify(content);
-
-            // GitHub API를 통해 파일 업로드
-            try {
-                const response = await axios.put(apiUrl, {
-                    message: 'Add new content',
-                    committer: { name: 'Your Name', email: 'your_email@example.com' },
-                    content: btoa(contentJson), // base64 인코딩
-                }, {
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                    }
-                });
-
-                alert('Content saved to GitHub!');
-            } catch (error) {
-                console.error('Error saving to GitHub:', error);
-                alert('Failed to save content.');
-            }
+            // 로컬 스토리지에 저장
+            localStorage.setItem('canvasData', JSON.stringify(content));
+            alert('Content saved locally!');
         }
+
+        // 페이지 로드 시 로컬 스토리지에서 불러오기
+        window.onload = function() {
+            const savedData = localStorage.getItem('canvasData');
+            if (savedData) {
+                const content = JSON.parse(savedData);
+                content.forEach(item => {
+                    const cell = createCell(100, 100); // 기본 위치
+                    cell.querySelector('input').value = item.text;
+                    cell.querySelector('.image-container img').src = item.image;
+                });
+            }
+        };
     </script>
 </body>
 </html>
